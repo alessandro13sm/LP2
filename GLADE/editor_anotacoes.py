@@ -42,9 +42,8 @@ class Aplicacao:
         self.alteracoes.set_markup(f'<span foreground="red">Alterações não salvas</span>')
 
     def incrementar(self, componente=None, dados=None):
-        texto = len(self.entrada_titulo.get_text().split(" ")) + \
-                len(self.entrada_anotacao.get_text().split(" "))
-        self.palavras += texto
+        texto_contagem = len(self.entrada_titulo.get_text().split(" ")) + len(self.entrada_anotacao.get_text().split(" "))
+        self.palavras += texto_contagem
         self.caracteres += 1
         self.lbl_caracteres.set_text(f"{self.caracteres} caracteres - {self.palavras} palavras")
 
