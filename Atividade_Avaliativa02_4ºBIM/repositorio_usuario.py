@@ -1,29 +1,60 @@
 # -*- coding: utf-8 -*-
 
 import hashlib
+import hmac
 import secrets
 from conexao import conectar
+
+ITERACOES_PBKDF2 = 100000
+TAMANHO_SALT_BYTES = 16
+
+def calcular_hash_pbkdf2(senha, salt_hex):
+   senha_bytes = senha.encode('utf-8')
+   salt_bytes = bytes.fromhex(salt_hex)
+   hash_bytes = hashlib.pbkdf2_hmac(
+      "sha256",
+      senha_bytes,
+      salt_bytes,
+      ITERACOES_PBKDF2,
+   )
+
+   return hash_bytes.hex()
 
 def preparar_senha(senha):
    """PROVISÓRIO: devolve (senha_hash, salt) para gravar no banco. """
 
-   salt_bytes = secrets.token_bytes(16)
-   salt = salt_bytes.hex()
+   salt_hex = secrets.token_hex(TAMANHO_SALT_BYTES)
+   senha_hash = calcular_hash_pbkdf2(senha, salt_hex)
+   return senha_hash, salt_hex
 
-   senha_bytes = senha.encode('utf-8')
-   salt_hash_bytes = salt.encode('utf-8')
-   iteracoes = 100000
+def verificar_login(login, senha):
+    if not login or not senha:
+        return None
 
-   hash_bytes = hashlib.pbkdf2_hmac(
-      'sha256',
-      senha_bytes,
-      salt_hash_bytes,
-      iteracoes
-   )
+    with conectar() as conexao:
+        cursor = conexao.cursor()
+        cursor.execute(
+           "SELECT nome, senha_hash, salt FROM usuario WHERE login = %s",
+           (login,),
+        )
+        registro = cursor.fetchone()
 
-   senha_hash = hash_bytes.hex()
+    if not registro:
+        return None
+    
+    nome, senha_hash_banco, salt_banco = registro
+    if not senha_hash_banco or not salt_banco or len(salt_banco) != 32:
+        return None
 
-   return senha_hash, salt
+    try:
+        hash_calculado = calcular_hash_pbkdf2(senha, salt_banco)
+    except ValueError:
+        return None
+
+    if hmac.compare_digest(hash_calculado, senha_hash_banco):
+        return nome
+    return None
+
 
 def listar():
    with conectar() as conexao:
